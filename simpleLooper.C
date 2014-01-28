@@ -47,9 +47,7 @@ void simpleLooper(){
  
   gSystem->Load("libDelphes");
 
-  TChain chtt("Delphes");
-
-  bool runtt = true;
+  bool runtt = false;
   bool runWZ = false;
   bool runW  = false;
 
@@ -61,11 +59,11 @@ void simpleLooper(){
 
   if (runtt){
     doLoop( Form("tt-4p-0-1000_100TEV_%s"      , PU ) , nfiles );
-    // doLoop( Form("tt-4p-1000-2000_100TEV_%s"   , PU ) , nfiles );
-    // doLoop( Form("tt-4p-2000-3500_100TEV_%s"   , PU ) , nfiles );
-    // doLoop( Form("tt-4p-3500-5500_100TEV_%s"   , PU ) , nfiles );
-    // doLoop( Form("tt-4p-5500-8500_100TEV_%s"   , PU ) , nfiles );
-    // doLoop( Form("tt-4p-8500-100000_100TEV_%s" , PU ) , nfiles );
+    doLoop( Form("tt-4p-1000-2000_100TEV_%s"   , PU ) , nfiles );
+    doLoop( Form("tt-4p-2000-3500_100TEV_%s"   , PU ) , nfiles );
+    doLoop( Form("tt-4p-3500-5500_100TEV_%s"   , PU ) , nfiles );
+    doLoop( Form("tt-4p-5500-8500_100TEV_%s"   , PU ) , nfiles );
+    doLoop( Form("tt-4p-8500-100000_100TEV_%s" , PU ) , nfiles );
   }
 
   if( runWZ ){
@@ -182,13 +180,38 @@ vector<char*> fileNames( const string sample , int nfiles = 1){
     exit(0);
   }
 
-  while( n < nfiles){
-    ifile >> filepath;
+  char* fullfilepath = "";
+  string previousfilepath = "";
 
-    char* fullfilepath = Form("root://red-gridftp11.unl.edu/%s",filepath.c_str());
+  // if nfiles > 0, run over nfiles in list
+  if( nfiles > 0 ){
+    while( n < nfiles){
+      ifile >> filepath;
+      
+      fullfilepath = Form("root://red-gridftp11.unl.edu/%s",filepath.c_str());
+      cout << fullfilepath << endl;
+      names.push_back(fullfilepath);
+      n++;
+    }
+  }
 
-    names.push_back(fullfilepath);
-    n++;
+  // if nfiles = -1, run over all files in list
+  else{
+    while( !ifile.eof() ){
+
+      previousfilepath = filepath;
+
+      ifile >> filepath;
+
+      // check for duplicate at end of file
+      if( strcmp(previousfilepath.c_str(),filepath.c_str()) != 0 ){
+      
+	fullfilepath = Form("root://red-gridftp11.unl.edu/%s",filepath.c_str());
+	cout << fullfilepath << endl;      
+	names.push_back(fullfilepath);
+      }
+
+    }
   }
 
   return names;
@@ -358,34 +381,19 @@ void doLoop(const string prefix, int nfiles ){
   // Create chain of root trees, add appropriate files
   //-----------------------------------------------------------------------
 
-  //TChain* chain = addFile(prefix);
-  /*
-  vector<TChain*> myChains = addFiles(prefix,nfiles);
-  cout << "Loaded " << myChains.size() << " files" << endl;
-
-  nevents_ = 0;
-  for( unsigned int i = 0 ; i < myChains.size() ; i++ ){
-    cout << "Chain " << i << " entries " << (myChains.at(i))->GetEntries() << endl;
-    nevents_ += (myChains.at(i))->GetEntries();
-  }
-  */
-
   xsec_    = getCrossSection( prefix );
 
   vector<char*> filepaths = fileNames( prefix , nfiles );
 
   cout << "Loading " << filepaths.size() << " files" << endl;
 
-  //TChain* chain = new TChain("Delphes");
   TChain chain("Delphes");
 
   for( unsigned int i = 0 ; i < filepaths.size() ; i++ ){
     cout << "Adding " << filepaths.at(i) << endl;
-    //chain->Add(filepaths.at(i));
     chain.Add(filepaths.at(i));
   }
 
-  //nevents_ = chain->GetEntries();
   nevents_ = chain.GetEntries();
 
   weight_  = xsec_ / (float) nevents_;
@@ -395,8 +403,11 @@ void doLoop(const string prefix, int nfiles ){
   // Book histograms
   //--------------------------------------------------------------
   
+  TDirectory *rootdir = gDirectory->GetDirectory("Rint:");
+  rootdir->cd();
+
   TH1 *histJetPT  = new TH1F("jet_pt"  , "jet P_{T} [GeV]"              , 100  , 0.0  , 500.0);
-  //TH1 *histMass   = new TH1F("mass"    , "M_{inv}(e_{1}, e_{2}) [GeV]"  , 100  , 40.0 , 140.0);
+  TH1 *histMass   = new TH1F("mass"    , "M_{inv}(e_{1}, e_{2}) [GeV]"  , 100  , 40.0 , 140.0);
   TH1 *histMet    = new TH1F("met"     , "E_{T}^{miss} [GeV]"           , 100  , 0.0  , 2000.0);
   TH1 *histHT     = new TH1F("ht"      , "H_{T} [GeV]"                  , 100  , 0.0  , 20000.0);
   TH1 *histNjets  = new TH1F("njets"   , "N_{jets}"                     , 10   , 0    , 10);
@@ -408,254 +419,248 @@ void doLoop(const string prefix, int nfiles ){
   // loop over chains
   //--------------------------------------------------------------
 
-  // for( unsigned int i = 0 ; i < myChains.size() ; i++ ){
+  ExRootTreeReader *treeReader = new ExRootTreeReader(&chain);
+  Long64_t numberOfEntries = treeReader->GetEntries();
+  int nEventsTotal = 0;
 
-  //   cout << "Running on file " << i << endl;
+  //--------------------------------------------------------------
+  // Get pointers to branches used in this analysis
+  //--------------------------------------------------------------
 
-  //   TChain* chain = myChains.at(i);
-
-    ExRootTreeReader *treeReader = new ExRootTreeReader(&chain);
-    Long64_t numberOfEntries = treeReader->GetEntries();
-    int nEventsTotal = 0;
-
-    //--------------------------------------------------------------
-    // Get pointers to branches used in this analysis
-    //--------------------------------------------------------------
-
-    TClonesArray *branchEvent     = treeReader->UseBranch("Event");
-    TClonesArray *branchParticle  = treeReader->UseBranch("Particle");
-    TClonesArray *branchJet       = treeReader->UseBranch("Jet");
-    TClonesArray *branchElectron  = treeReader->UseBranch("Electron");
-    TClonesArray *branchMuon      = treeReader->UseBranch("Muon");
-    TClonesArray *branchMissingET = treeReader->UseBranch("MissingET");
-    TClonesArray *branchScalarHT  = treeReader->UseBranch("ScalarHT");
+  TClonesArray *branchEvent     = treeReader->UseBranch("Event");
+  TClonesArray *branchParticle  = treeReader->UseBranch("Particle");
+  TClonesArray *branchJet       = treeReader->UseBranch("Jet");
+  TClonesArray *branchElectron  = treeReader->UseBranch("Electron");
+  TClonesArray *branchMuon      = treeReader->UseBranch("Muon");
+  TClonesArray *branchMissingET = treeReader->UseBranch("MissingET");
+  TClonesArray *branchScalarHT  = treeReader->UseBranch("ScalarHT");
 
 
-    // Loop over all events
-    //for(Int_t entry = 0; entry < numberOfEntries; ++entry){
-    for(Int_t entry = 0; entry < 100; ++entry){
+  // Loop over all events
+  //for(Int_t entry = 0; entry < numberOfEntries; ++entry){
+  for(Int_t entry = 0; entry < 100; ++entry){
 
-      InitVars();
+    InitVars();
 
-      nEventsTotal++;
+    nEventsTotal++;
 
-      // Load selected branches with data from specified event
-      treeReader->ReadEntry(entry);
+    // Load selected branches with data from specified event
+    treeReader->ReadEntry(entry);
 
-      // progress feedback to user
-      if (nEventsTotal % 1000 == 0){
+    // progress feedback to user
+    if (nEventsTotal % 1000 == 0){
       
-	// xterm magic from L. Vacavant and A. Cerri
-	if (isatty(1)){
+      // xterm magic from L. Vacavant and A. Cerri
+      if (isatty(1)){
 	
-	  printf("\015\033[32m ---> \033[1m\033[31m%4.1f%%"
-		 "\033[0m\033[32m <---\033[0m\015", (float)nEventsTotal/(numberOfEntries*0.01));
-	  fflush(stdout);
-	}
+	printf("\015\033[32m ---> \033[1m\033[31m%4.1f%%"
+	       "\033[0m\033[32m <---\033[0m\015", (float)nEventsTotal/(numberOfEntries*0.01));
+	fflush(stdout);
       }
+    }
 
-      //----------------------------------------
-      // event weight
-      //----------------------------------------
+    //----------------------------------------
+    // event weight
+    //----------------------------------------
 
-      LHEFEvent* myevent = (LHEFEvent*) branchEvent->At(0);
-      stweight_ = myevent->Weight;
-      histWeight->Fill(stweight_);
+    LHEFEvent* myevent = (LHEFEvent*) branchEvent->At(0);
+    stweight_ = myevent->Weight;
+    histWeight->Fill(stweight_);
 
-      //----------------------------------------
-      // get leading jet pt and njets
-      //----------------------------------------
+    //----------------------------------------
+    // get leading jet pt and njets
+    //----------------------------------------
 
-      if(branchJet->GetEntries() > 0){
-	Jet *jet = (Jet*) branchJet->At(0);
-	jet1pt_  = jet->PT;
-	jet1eta_ = jet->Eta;
-	jet1phi_ = jet->Phi;
-	histJetPT->Fill(jet1pt_,weight_*stweight_);
-      }
+    if(branchJet->GetEntries() > 0){
+      Jet *jet = (Jet*) branchJet->At(0);
+      jet1pt_  = jet->PT;
+      jet1eta_ = jet->Eta;
+      jet1phi_ = jet->Phi;
+      histJetPT->Fill(jet1pt_,weight_*stweight_);
+    }
 
-      if(branchJet->GetEntries() > 1){
-	Jet *jet = (Jet*) branchJet->At(1);
-	jet2pt_  = jet->PT;
-	jet2eta_ = jet->Eta;
-	jet2phi_ = jet->Phi;
-      }
+    if(branchJet->GetEntries() > 1){
+      Jet *jet = (Jet*) branchJet->At(1);
+      jet2pt_  = jet->PT;
+      jet2eta_ = jet->Eta;
+      jet2phi_ = jet->Phi;
+    }
 
-      if(branchJet->GetEntries() > 2){
-	Jet *jet = (Jet*) branchJet->At(2);
-	jet3pt_  = jet->PT;
-	jet3eta_ = jet->Eta;
-	jet3phi_ = jet->Phi;
+    if(branchJet->GetEntries() > 2){
+      Jet *jet = (Jet*) branchJet->At(2);
+      jet3pt_  = jet->PT;
+      jet3eta_ = jet->Eta;
+      jet3phi_ = jet->Phi;
 
-      }
+    }
 
-      if(branchJet->GetEntries() > 3){
-	Jet *jet = (Jet*) branchJet->At(3);
-	jet4pt_  = jet->PT;
-	jet4eta_ = jet->Eta;
-	jet4phi_ = jet->Phi;
-      }
+    if(branchJet->GetEntries() > 3){
+      Jet *jet = (Jet*) branchJet->At(3);
+      jet4pt_  = jet->PT;
+      jet4eta_ = jet->Eta;
+      jet4phi_ = jet->Phi;
+    }
 
-      //----------------------------------------
-      // number of pt > 30 GeV jets
-      //----------------------------------------
+    //----------------------------------------
+    // number of pt > 30 GeV jets
+    //----------------------------------------
 
-      for( int ijet = 0 ; ijet < branchJet->GetEntries() ; ijet++ ){
-	Jet* jet = (Jet*) branchJet->At(ijet);
-	//cout << i << " " << Form("%.1f",jet->PT) << " " << Form("%.2f",jet->Eta) << endl;
-	if( jet->PT > 30 ) njets_++;
-      }
+    for( int ijet = 0 ; ijet < branchJet->GetEntries() ; ijet++ ){
+      Jet* jet = (Jet*) branchJet->At(ijet);
+      //cout << i << " " << Form("%.1f",jet->PT) << " " << Form("%.2f",jet->Eta) << endl;
+      if( jet->PT > 30 ) njets_++;
+    }
 
-      histNjets->Fill(njets_,weight_*stweight_);
+    histNjets->Fill(njets_,weight_*stweight_);
     
-      //----------------------------------------
-      // missing et
-      //----------------------------------------
+    //----------------------------------------
+    // missing et
+    //----------------------------------------
 
-      MissingET* met = (MissingET*) branchMissingET->At(0);
-      met_ = met->MET;
-      histMet->Fill(met_,weight_*stweight_);
+    MissingET* met = (MissingET*) branchMissingET->At(0);
+    met_ = met->MET;
+    histMet->Fill(met_,weight_*stweight_);
 
-      //----------------------------------------
-      // HT
-      //----------------------------------------
+    //----------------------------------------
+    // HT
+    //----------------------------------------
 
-      ScalarHT* ht = (ScalarHT*) branchScalarHT->At(0);
-      ht_ = ht->HT;
-      histHT->Fill(ht_,weight_*stweight_);
+    ScalarHT* ht = (ScalarHT*) branchScalarHT->At(0);
+    ht_ = ht->HT;
+    histHT->Fill(ht_,weight_*stweight_);
 
-      //----------------------------------------
-      // loop over leptons to get STlep
-      //----------------------------------------
+    //----------------------------------------
+    // loop over leptons to get STlep
+    //----------------------------------------
 
-      for( int iel = 0 ; iel < branchElectron->GetEntries() ; iel++ ){
-	Electron* el = (Electron*) branchElectron->At(iel);
-	stlep_ += el->PT;
-	//cout << "Electron " << i << el->PT << endl;
+    for( int iel = 0 ; iel < branchElectron->GetEntries() ; iel++ ){
+      Electron* el = (Electron*) branchElectron->At(iel);
+      stlep_ += el->PT;
+      //cout << "Electron " << i << el->PT << endl;
+    }
+
+    for( int imu = 0 ; imu < branchMuon->GetEntries() ; imu++ ){
+      Muon* mu = (Muon*) branchMuon->At(imu);
+      stlep_ += mu->PT;
+      //cout << "Muon " << i << mu->PT << endl;
+    }
+
+    st_ = met_ + ht_ + stlep_;
+
+    histSt->Fill(st_,weight_*stweight_);
+    histStLO->Fill(st_,weight_);
+
+    //----------------------------------------
+    // Count various types of particles
+    //----------------------------------------
+
+    for( int ip = 0 ; ip < branchParticle->GetEntries() ; ip++ ){
+      GenParticle* p = (GenParticle*) branchParticle->At(ip);
+      if( abs( p->PID ) == 24 ) nw_++;
+      if( abs( p->PID ) == 23 ) nz_++;
+      if( abs( p->PID ) ==  6 ) ntop_++;
+      if( abs( p->PID ) == 11 ) ngenels_++;
+      if( abs( p->PID ) == 13 ) ngenmus_++;
+      if( abs( p->PID ) == 15 ) ngentaus_++;
+    }
+
+    ngenleps_ = ngenels_ + ngenmus_ + ngentaus_;
+
+    //----------------------------------------
+    // look at events with 2 b-jets
+    //----------------------------------------
+
+    int ib1 = -1;
+    int ib2 = -1;
+
+    for( int ij = 0 ; ij < branchJet->GetEntries() ; ij++ ){
+
+      Jet* jet = (Jet*) branchJet->At(ij);
+
+      if( jet->PT < 30.0 ) continue;
+
+      if( jet->BTag & (1 << 1) ){ 
+	nb_++; 
+	if     ( ib1 < 0 ) ib1 = ij;
+	else if( ib2 < 0 ) ib2 = ij;
       }
 
-      for( int imu = 0 ; imu < branchMuon->GetEntries() ; imu++ ){
-	Muon* mu = (Muon*) branchMuon->At(imu);
-	stlep_ += mu->PT;
-	//cout << "Muon " << i << mu->PT << endl;
+    }
+
+    if( nb_ >= 2 ){
+      if( ib1 < 0 || ib2 < 0 ) cout << "Negative b-jet index" << endl;
+
+      Jet* bjet1 = (Jet*) branchJet->At(ib1);      
+      Jet* bjet2 = (Jet*) branchJet->At(ib2);      
+
+      mbb_ = ( (bjet1->P4()) + (bjet2->P4()) ).M();
+    }
+
+    nels_  = branchElectron->GetEntries();
+    nmus_  = branchMuon->GetEntries();
+    nleps_ = nels_ + nmus_;
+
+    if( nleps_ == 1 ){
+
+      if( nels_ == 1 ){
+	Electron* el = (Electron *) branchElectron->At(0);
+	leptype_ = 0;
+	lep1pt_  = el->PT;
+	lep1eta_ = el->Eta;
+	lep1phi_ = el->Phi;
       }
 
-      st_ = met_ + ht_ + stlep_;
-
-      histSt->Fill(st_,weight_*stweight_);
-      histStLO->Fill(st_,weight_);
-
-      //----------------------------------------
-      // Count various types of particles
-      //----------------------------------------
-
-      for( int ip = 0 ; ip < branchParticle->GetEntries() ; ip++ ){
-	GenParticle* p = (GenParticle*) branchParticle->At(ip);
-	if( abs( p->PID ) == 24 ) nw_++;
-	if( abs( p->PID ) == 23 ) nz_++;
-	if( abs( p->PID ) ==  6 ) ntop_++;
-	if( abs( p->PID ) == 11 ) ngenels_++;
-	if( abs( p->PID ) == 13 ) ngenmus_++;
-	if( abs( p->PID ) == 15 ) ngentaus_++;
+      else if( nmus_ == 1 ){
+	Muon* mu = (Muon *) branchMuon->At(0);
+	leptype_ = 1;
+	lep1pt_  = mu->PT;
+	lep1eta_ = mu->Eta;
+	lep1phi_ = mu->Phi;
       }
-
-      ngenleps_ = ngenels_ + ngenmus_ + ngentaus_;
-
-      //----------------------------------------
-      // look at events with 2 b-jets
-      //----------------------------------------
-
-      int ib1 = -1;
-      int ib2 = -1;
-
-      for( int ij = 0 ; ij < branchJet->GetEntries() ; ij++ ){
-
-	Jet* jet = (Jet*) branchJet->At(ij);
-
-	if( jet->PT < 30.0 ) continue;
-
-	if( jet->BTag & (1 << 1) ){ 
-	  nb_++; 
-	  if     ( ib1 < 0 ) ib1 = ij;
-	  else if( ib2 < 0 ) ib2 = ij;
-	}
-
-      }
-
-      if( nb_ >= 2 ){
-	if( ib1 < 0 || ib2 < 0 ) cout << "Negative b-jet index" << endl;
-
-	Jet* bjet1 = (Jet*) branchJet->At(ib1);      
-	Jet* bjet2 = (Jet*) branchJet->At(ib2);      
-
-	mbb_ = ( (bjet1->P4()) + (bjet2->P4()) ).M();
-      }
-
-      nels_  = branchElectron->GetEntries();
-      nmus_  = branchMuon->GetEntries();
-      nleps_ = nels_ + nmus_;
-
-      if( nleps_ == 1 ){
-
-	if( nels_ == 1 ){
-	  Electron* el = (Electron *) branchElectron->At(0);
-	  leptype_ = 0;
-	  lep1pt_  = el->PT;
-	  lep1eta_ = el->Eta;
-	  lep1phi_ = el->Phi;
-	}
-
-	else if( nmus_ == 1 ){
-	  Muon* mu = (Muon *) branchMuon->At(0);
-	  leptype_ = 1;
-	  lep1pt_  = mu->PT;
-	  lep1eta_ = mu->Eta;
-	  lep1phi_ = mu->Phi;
-	}
       
-	else{ 
-	  cout << "Couldn't find lepton!" << endl;
-	  exit(0);
-	}
-
-	mt_ = sqrt( 2 * met_ * lep1pt_ * ( 1 - cos( metphi_ - lep1phi_) ) );
+      else{ 
+	cout << "Couldn't find lepton!" << endl;
+	exit(0);
       }
 
-
-      // leptype_ = -1;
-      // float maxleppt = -1.0;
-
-      // cout << "Electrons " << endl;
-      // for( int iel = 0 ; iel < nels_ ; iel++ ){
-      //   Electron* el = (Electron *) branchElectron->At(iel);
-      //   cout << iel << " " << el->PT << endl;
-      // }
-
-      // cout << "Muons " << endl;
-      // for( int imu = 0 ; imu < nmus_ ; imu++ ){
-      //   Muon* mu = (Muon *) branchMuon->At(imu);
-      //   cout << imu << " " << mu->PT << endl;
-      // }
+      mt_ = sqrt( 2 * met_ * lep1pt_ * ( 1 - cos( metphi_ - lep1phi_) ) );
+    }
 
 
-      //}
+    // leptype_ = -1;
+    // float maxleppt = -1.0;
+
+    // cout << "Electrons " << endl;
+    // for( int iel = 0 ; iel < nels_ ; iel++ ){
+    //   Electron* el = (Electron *) branchElectron->At(iel);
+    //   cout << iel << " " << el->PT << endl;
+    // }
+
+    // cout << "Muons " << endl;
+    // for( int imu = 0 ; imu < nmus_ ; imu++ ){
+    //   Muon* mu = (Muon *) branchMuon->At(imu);
+    //   cout << imu << " " << mu->PT << endl;
+    // }
 
 
-      // Electron *elec1, *elec2;
+    //}
 
-      // // If event contains at least 2 electrons
-      // if(branchElectron->GetEntries() > 1){
-      //   // Take first two electrons
-      //   elec1 = (Electron *) branchElectron->At(0);
-      //   elec2 = (Electron *) branchElectron->At(1);
+
+    // Electron *elec1, *elec2;
+
+    // // If event contains at least 2 electrons
+    // if(branchElectron->GetEntries() > 1){
+    //   // Take first two electrons
+    //   elec1 = (Electron *) branchElectron->At(0);
+    //   elec2 = (Electron *) branchElectron->At(1);
       
-      //   // Plot their invariant mass
-      //   histMass->Fill(((elec1->P4()) + (elec2->P4())).M());
-      // }
+    //   // Plot their invariant mass
+    //   histMass->Fill(((elec1->P4()) + (elec2->P4())).M());
+    // }
     
-      tree->Fill();
+    tree->Fill();
 
-    } // end loop over events in chain
+  } // end loop over events in chain
     //  } // end loop over chains
 
   fbaby->cd();
@@ -670,16 +675,13 @@ void doLoop(const string prefix, int nfiles ){
 
   fout->cd();
 
-  // histMet->Write();
-  // histHT->Write();
-  // histJetPT->Write();
-  // histNjets->Write();
+  histMet->Write();
+  histHT->Write();
+  histJetPT->Write();
+  histNjets->Write();
   histSt->Write();
-  // histStLO->Write();
+  histStLO->Write();
 
   fout->Close();
-
-
-
 
 }
