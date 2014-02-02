@@ -32,12 +32,12 @@
 #include "simpleLooper.h"
 
 
-
+char* version = (char*) "V00-00-01";
 
 using namespace std;
 
 //void doLoop(const char *inputFile, int nfiles=1);
-void doLoop(const string inputFile, int nfiles=1);
+void doLoop(const string inputFile, int nfiles=1, bool isSignal=false);
 
 //--------------------------------------
 // Function to run over various samples
@@ -47,9 +47,11 @@ void simpleLooper(){
  
   gSystem->Load("libDelphes");
 
-  bool runtt = false;
-  bool runWZ = false;
-  bool runW  = false;
+  bool runtt    = false;
+  bool runWZ    = false;
+  bool runW     = false;
+  bool runWHsig = true;
+  bool runWZsig = false;
 
   char* PU = (char*) "NoPileUp";
   //char* PU = (char*) "40PileUp";
@@ -82,6 +84,67 @@ void simpleLooper(){
     doLoop( Form("Bj-4p-3000-5500_100TEV_%s"   , PU ) , nfiles );
     doLoop( Form("Bj-4p-5500-9000_100TEV_%s"   , PU ) , nfiles );
     doLoop( Form("Bj-4p-9000-100000_100TEV_%s" , PU ) , nfiles );
+  }
+
+  if( runWHsig ){
+    doLoop( "ewkino_WH_500_1000_extra" , 1 , true );
+    doLoop( "ewkino_WH_500_2000_extra" , 1 , true );
+    doLoop( "ewkino_WH_500_3000_extra" , 1 , true );
+  }
+
+  if( runWZsig ){
+    doLoop( "ewkino_WZ_500_1000_extra" , 1 , true );
+    doLoop( "ewkino_WZ_500_2000_extra" , 1 , true );
+    doLoop( "ewkino_WZ_500_3000_extra" , 1 , true );
+  }
+
+}
+
+//--------------------------------------
+// Function to run over various samples
+//--------------------------------------
+
+void simpleLooper(char* sample, char* PU, int stbin , int nfiles = 1 ){
+ 
+  gSystem->Load("libDelphes");
+
+  if ( TString(sample).Contains("ttbar") ){
+    if     ( stbin == 1 ) doLoop( Form("tt-4p-0-1000_100TEV_%s"      , PU ) , nfiles );
+    else if( stbin == 2 ) doLoop( Form("tt-4p-1000-2000_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 3 ) doLoop( Form("tt-4p-2000-3500_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 4 ) doLoop( Form("tt-4p-3500-5500_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 5 ) doLoop( Form("tt-4p-5500-8500_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 6 ) doLoop( Form("tt-4p-8500-100000_100TEV_%s" , PU ) , nfiles );
+    else{
+      cout << "Error, unrecognized bin " << stbin << endl;
+    }
+  }
+
+  else if ( TString(sample).Contains("diboson") ){
+
+    if     ( stbin == 1 ) doLoop( Form("BB-4p-0-500_100TEV_%s"       , PU ) , nfiles );
+    else if( stbin == 2 ) doLoop( Form("BB-4p-500-1500_100TEV_%s"    , PU ) , nfiles );
+    else if( stbin == 3 ) doLoop( Form("BB-4p-1500-3000_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 4 ) doLoop( Form("BB-4p-3000-5500_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 5 ) doLoop( Form("BB-4p-5500-9000_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 6 ) doLoop( Form("BB-4p-9000-100000_100TEV_%s" , PU ) , nfiles );
+    else{
+      cout << "Error, unrecognized bin " << stbin << endl;
+    }
+
+  }
+
+  else if ( TString(sample).Contains("boson") ){
+    if     ( stbin == 1 ) doLoop( Form("Bj-4p-0-500_100TEV_%s"       , PU ) , nfiles );
+    else if( stbin == 2 ) doLoop( Form("Bj-4p-500-1500_100TEV_%s"    , PU ) , nfiles );
+    else if( stbin == 3 ) doLoop( Form("Bj-4p-1500-3000_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 4 ) doLoop( Form("Bj-4p-3000-5500_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 5 ) doLoop( Form("Bj-4p-5500-9000_100TEV_%s"   , PU ) , nfiles );
+    else if( stbin == 6 ) doLoop( Form("Bj-4p-9000-100000_100TEV_%s" , PU ) , nfiles );
+    else{
+      cout << "Error, unrecognized bin " << stbin << endl;
+    }
+
   }
 
 }
@@ -163,7 +226,7 @@ vector<TChain*> addFiles( const char* sample , int nfiles = 1){
 }
 
 //vector<char*> fileNames( const char* sample , int nfiles = 1){
-vector<char*> fileNames( const string sample , int nfiles = 1){
+vector<string> fileNames( const string sample , int nfiles = 1){
 
   cout << "Opening file list for sample " << sample << endl;
 
@@ -171,7 +234,7 @@ vector<char*> fileNames( const string sample , int nfiles = 1){
   
   string filepath;
 
-  vector<char*> names;
+  vector<string> names;
 
   int n = 0;
 
@@ -180,7 +243,7 @@ vector<char*> fileNames( const string sample , int nfiles = 1){
     exit(0);
   }
 
-  char* fullfilepath = "";
+  char* fullfilepath = (char*) "";
   string previousfilepath = "";
 
   // if nfiles > 0, run over nfiles in list
@@ -230,27 +293,37 @@ float getCrossSection( const string sample ){
   
   // dibosons
   if( TString(sample).Contains("BB-4p-0-500_100TEV"        ) )  xsec = 2867.87;
-  if( TString(sample).Contains("BB-4p-500-1500_100TEV"     ) )  xsec = 405.2;
-  if( TString(sample).Contains("BB-4p-1500-3000_100TEV"    ) )  xsec = 22.8439;
-  if( TString(sample).Contains("BB-4p-3000-5500_100TEV"    ) )  xsec = 2.221;
-  if( TString(sample).Contains("BB-4p-5500-9000_100TEV"    ) )  xsec = 0.20005;
-  if( TString(sample).Contains("BB-4p-9000-100000_100TEV"  ) )  xsec = 0.02441;
+  else if( TString(sample).Contains("BB-4p-500-1500_100TEV"     ) )  xsec = 405.2;
+  else if( TString(sample).Contains("BB-4p-1500-3000_100TEV"    ) )  xsec = 22.8439;
+  else if( TString(sample).Contains("BB-4p-3000-5500_100TEV"    ) )  xsec = 2.221;
+  else if( TString(sample).Contains("BB-4p-5500-9000_100TEV"    ) )  xsec = 0.20005;
+  else if( TString(sample).Contains("BB-4p-9000-100000_100TEV"  ) )  xsec = 0.02441;
 
   // ttbar
-  if( TString(sample).Contains("tt-4p-0-1000_100TEV"       ) )  xsec = 29141.3;
-  if( TString(sample).Contains("tt-4p-1000-2000_100TEV"    ) )  xsec =  1777.3;
-  if( TString(sample).Contains("tt-4p-2000-3500_100TEV"    ) )  xsec =  185.22;
-  if( TString(sample).Contains("tt-4p-3500-5500_100TEV"    ) )  xsec =  18.919;
-  if( TString(sample).Contains("tt-4p-5500-8500_100TEV"    ) )  xsec = 2.38751;
-  if( TString(sample).Contains("tt-4p-8500-100000_100TEV"  ) )  xsec = 0.27715;
+  else if( TString(sample).Contains("tt-4p-0-1000_100TEV"       ) )  xsec = 29141.3;
+  else if( TString(sample).Contains("tt-4p-1000-2000_100TEV"    ) )  xsec =  1777.3;
+  else if( TString(sample).Contains("tt-4p-2000-3500_100TEV"    ) )  xsec =  185.22;
+  else if( TString(sample).Contains("tt-4p-3500-5500_100TEV"    ) )  xsec =  18.919;
+  else if( TString(sample).Contains("tt-4p-5500-8500_100TEV"    ) )  xsec = 2.38751;
+  else if( TString(sample).Contains("tt-4p-8500-100000_100TEV"  ) )  xsec = 0.27715;
 
   // W+jets
-  if( TString(sample).Contains("Bj-4p-0-500_100TEV"        ) ) xsec =   485362;
-  if( TString(sample).Contains("Bj-4p-500-1500_100TEV"     ) ) xsec =  20395.9;
-  if( TString(sample).Contains("Bj-4p-1500-3000_100TEV"    ) ) xsec =    635.9;
-  if( TString(sample).Contains("Bj-4p-3000-5500_100TEV"    ) ) xsec =  47.6179;
-  if( TString(sample).Contains("Bj-4p-5500-9000_100TEV"    ) ) xsec =  3.48470;
-  if( TString(sample).Contains("Bj-4p-9000-100000_100TEV"  ) ) xsec =  0.35638;
+  else if( TString(sample).Contains("Bj-4p-0-500_100TEV"        ) ) xsec =   485362;
+  else if( TString(sample).Contains("Bj-4p-500-1500_100TEV"     ) ) xsec =  20395.9;
+  else if( TString(sample).Contains("Bj-4p-1500-3000_100TEV"    ) ) xsec =    635.9;
+  else if( TString(sample).Contains("Bj-4p-3000-5500_100TEV"    ) ) xsec =  47.6179;
+  else if( TString(sample).Contains("Bj-4p-5500-9000_100TEV"    ) ) xsec =  3.48470;
+  else if( TString(sample).Contains("Bj-4p-9000-100000_100TEV"  ) ) xsec =  0.35638;
+
+  // WH
+  else if( TString(sample).Contains("ewkino_WH_500_1000"  ) ) xsec =  0.0650 * 1.3 * 0.56;
+  else if( TString(sample).Contains("ewkino_WH_500_2000"  ) ) xsec =  0.0051 * 1.3 * 0.56;
+  else if( TString(sample).Contains("ewkino_WH_500_3000"  ) ) xsec =  0.0010 * 1.3 * 0.56;
+
+  // WZ
+  else if( TString(sample).Contains("ewkino_WZ_500_1000"  ) ) xsec =  0.0650 * 1.3 * 0.07 * 0.22;
+  else if( TString(sample).Contains("ewkino_WZ_500_2000"  ) ) xsec =  0.0051 * 1.3 * 0.07 * 0.22;
+  else if( TString(sample).Contains("ewkino_WZ_500_3000"  ) ) xsec =  0.0010 * 1.3 * 0.07 * 0.22;
 
   cout << "Sample cross section " << xsec << endl;
 
@@ -265,7 +338,11 @@ float getCrossSection( const string sample ){
 
 void InitVars(){
   nb_       = 0  ;
+  nbgen_    = 0  ;
   njets_    = 0  ;
+  njets50_  = 0  ;
+  njets100_ = 0  ;
+  ngenjets_ = 0  ;
   nels_     = 0  ;
   nmus_     = 0  ;
   nleps_    = 0  ; 
@@ -295,10 +372,15 @@ void InitVars(){
   // nevents_  = 0  ;
   // weight_   = 0. ;
   nw_       = 0  ;
+  nh_       = 0  ;
   nz_       = 0  ;
   ntop_     = 0  ;
   mt_       = 0  ;
   mbb_      = 0  ;
+  ptbb_     = 0  ;
+  drbb_     = 0  ;
+  drbbgen_  = 0  ;
+  pthgen_   = 0  ;
   lep1pt_   = 0. ;
   lep1eta_  = 0. ;
   lep1phi_  = 0. ;
@@ -316,18 +398,19 @@ void InitVars(){
 //-------------------------------------------
 
 //void doLoop(const char *prefix, int nfiles ){
-void doLoop(const string prefix, int nfiles ){
+void doLoop(const string prefix, int nfiles , bool isSignal){
 
   //static const char* sample = prefix;
 
   cout << endl << endl;
-  cout << "Running on sample: " << prefix << endl;
+  cout << "Running on sample: " << prefix  << endl;
+  cout << "Code version     : " << version << endl;
 
   //--------------------------------------------------------------
   // make an output ntuple
   //--------------------------------------------------------------
 
-  TFile *fbaby = TFile::Open(  Form("output/%s_baby.root",prefix.c_str()) ,"RECREATE" );
+  TFile *fbaby = TFile::Open(  Form("output/%s/%s_baby.root",version,prefix.c_str()) ,"RECREATE" );
   fbaby->cd();
 
   TTree* tree = new TTree("t","Tree");
@@ -337,7 +420,11 @@ void doLoop(const string prefix, int nfiles ){
   //--------------------------------------------------------------
 
   tree->Branch("nb"         ,  &nb_         ,   "nb/I"		);
+  tree->Branch("nbgen"      ,  &nbgen_      ,   "nbgen/I"	);
   tree->Branch("njets"      ,  &njets_      ,   "njets/I"	);
+  tree->Branch("njets50"    ,  &njets50_    ,   "njets50/I"	);
+  tree->Branch("njets100"   ,  &njets100_   ,   "njets100/I"	);
+  tree->Branch("ngenjets"   ,  &ngenjets_   ,   "ngenjets/I"	);
   tree->Branch("nels"       ,  &nels_       ,   "nels/I"	);
   tree->Branch("nmus"       ,  &nmus_       ,   "nmus/I"	);
   tree->Branch("nleps"      ,  &nleps_      ,   "nleps/I"	);
@@ -365,11 +452,16 @@ void doLoop(const string prefix, int nfiles ){
   tree->Branch("xsec"       ,  &xsec_       ,   "xsec/F"	);
   tree->Branch("nevents"    ,  &nevents_    ,   "nevents/I"	);
   tree->Branch("weight"     ,  &weight_     ,   "weight/F"	);
-  tree->Branch("nw"         ,  &nw_         ,   "nw/F"		);
-  tree->Branch("nz"         ,  &nz_         ,   "nz/F"		);
+  tree->Branch("nw"         ,  &nw_         ,   "nw/I"		);
+  tree->Branch("nh"         ,  &nh_         ,   "nh/I"		);
+  tree->Branch("nz"         ,  &nz_         ,   "nz/I"		);
   tree->Branch("ntop"       ,  &ntop_       ,   "ntop/I"	);
   tree->Branch("mt"         ,  &mt_         ,   "mt/F"		);
   tree->Branch("mbb"        ,  &mbb_        ,   "mbb/F"		);
+  tree->Branch("ptbb"       ,  &ptbb_       ,   "ptbb/F"	);
+  tree->Branch("drbb"       ,  &drbb_       ,   "drbb/F"	);
+  tree->Branch("drbbgen"    ,  &drbbgen_    ,   "drbbgen/F"	);
+  tree->Branch("pthgen"     ,  &pthgen_     ,   "pthgen/F"	);
   tree->Branch("lep1pt"     ,  &lep1pt_     ,   "lep1pt/F"	);
   tree->Branch("lep1eta"    ,  &lep1eta_    ,   "lep1eta/F"	);
   tree->Branch("lep2pt"     ,  &lep2pt_     ,   "lep2pt/F"	);
@@ -383,15 +475,25 @@ void doLoop(const string prefix, int nfiles ){
 
   xsec_    = getCrossSection( prefix );
 
-  vector<char*> filepaths = fileNames( prefix , nfiles );
-
-  cout << "Loading " << filepaths.size() << " files" << endl;
-
   TChain chain("Delphes");
 
-  for( unsigned int i = 0 ; i < filepaths.size() ; i++ ){
-    cout << "Adding " << filepaths.at(i) << endl;
-    chain.Add(filepaths.at(i));
+  // load signal samples
+  if( isSignal ){
+    char* sigfile = Form("signalSamples/%s.root",prefix.c_str());
+    cout << "Loading signal sample " << sigfile << endl;
+    chain.Add( sigfile );
+  }
+
+  // load list of background samples
+  else{
+    vector<string> filepaths = fileNames( prefix , nfiles );
+    
+    cout << "Loading " << filepaths.size() << " files" << endl;
+    
+    for( unsigned int i = 0 ; i < filepaths.size() ; i++ ){
+      //cout << "Adding " << filepaths.at(i) << endl;
+      chain.Add(filepaths.at(i).c_str());
+    }
   }
 
   nevents_ = chain.GetEntries();
@@ -407,7 +509,7 @@ void doLoop(const string prefix, int nfiles ){
   rootdir->cd();
 
   TH1 *histJetPT  = new TH1F("jet_pt"  , "jet P_{T} [GeV]"              , 100  , 0.0  , 500.0);
-  TH1 *histMass   = new TH1F("mass"    , "M_{inv}(e_{1}, e_{2}) [GeV]"  , 100  , 40.0 , 140.0);
+  //TH1 *histMass   = new TH1F("mass"    , "M_{inv}(e_{1}, e_{2}) [GeV]"  , 100  , 40.0 , 140.0);
   TH1 *histMet    = new TH1F("met"     , "E_{T}^{miss} [GeV]"           , 100  , 0.0  , 2000.0);
   TH1 *histHT     = new TH1F("ht"      , "H_{T} [GeV]"                  , 100  , 0.0  , 20000.0);
   TH1 *histNjets  = new TH1F("njets"   , "N_{jets}"                     , 10   , 0    , 10);
@@ -434,11 +536,11 @@ void doLoop(const string prefix, int nfiles ){
   TClonesArray *branchMuon      = treeReader->UseBranch("Muon");
   TClonesArray *branchMissingET = treeReader->UseBranch("MissingET");
   TClonesArray *branchScalarHT  = treeReader->UseBranch("ScalarHT");
-
+  TClonesArray *branchGenJet    = treeReader->UseBranch("GenJet");
 
   // Loop over all events
-  //for(Int_t entry = 0; entry < numberOfEntries; ++entry){
-  for(Int_t entry = 0; entry < 100; ++entry){
+  for(Int_t entry = 0; entry < numberOfEntries; ++entry){
+  //for(Int_t entry = 0; entry < 100; ++entry){
 
     InitVars();
 
@@ -459,12 +561,17 @@ void doLoop(const string prefix, int nfiles ){
       }
     }
 
+    if( nEventsTotal % 10000 == 0 ){
+      cout << "Processed " << nEventsTotal << " events" << endl;
+    }
+
     //----------------------------------------
     // event weight
     //----------------------------------------
 
     LHEFEvent* myevent = (LHEFEvent*) branchEvent->At(0);
-    stweight_ = myevent->Weight;
+    if( isSignal ) stweight_ = 1.0;
+    else           stweight_ = myevent->Weight;
     histWeight->Fill(stweight_);
 
     //----------------------------------------
@@ -508,10 +615,22 @@ void doLoop(const string prefix, int nfiles ){
     for( int ijet = 0 ; ijet < branchJet->GetEntries() ; ijet++ ){
       Jet* jet = (Jet*) branchJet->At(ijet);
       //cout << i << " " << Form("%.1f",jet->PT) << " " << Form("%.2f",jet->Eta) << endl;
-      if( jet->PT > 30 ) njets_++;
+      if( jet->PT > 30  ) njets_++;
+      if( jet->PT > 50  ) njets50_++;
+      if( jet->PT > 100 ) njets100_++;
     }
 
     histNjets->Fill(njets_,weight_*stweight_);
+
+    //----------------------------------------
+    // number of pt > 30 GeV gen jets
+    //----------------------------------------
+
+    for( int igjet = 0 ; igjet < branchGenJet->GetEntries() ; igjet++ ){
+      Jet* genjet = (Jet*) branchGenJet->At(igjet);
+      //cout << i << " " << Form("%.1f",jet->PT) << " " << Form("%.2f",jet->Eta) << endl;
+      if( genjet->PT > 30 ) ngenjets_++;
+    }
     
     //----------------------------------------
     // missing et
@@ -553,15 +672,43 @@ void doLoop(const string prefix, int nfiles ){
     //----------------------------------------
     // Count various types of particles
     //----------------------------------------
+    
+    int ibgen1 = -1;
+    int ibgen2 = -1;
 
+    //cout << endl << endl;
     for( int ip = 0 ; ip < branchParticle->GetEntries() ; ip++ ){
       GenParticle* p = (GenParticle*) branchParticle->At(ip);
+
+      if( isSignal && ( p->Status < 20 || p->Status > 30 ) ) continue;
+
+      if( abs( p->PID ) == 25 ){
+	nh_++;
+	pthgen_ = p->PT;
+      }
       if( abs( p->PID ) == 24 ) nw_++;
       if( abs( p->PID ) == 23 ) nz_++;
       if( abs( p->PID ) ==  6 ) ntop_++;
       if( abs( p->PID ) == 11 ) ngenels_++;
       if( abs( p->PID ) == 13 ) ngenmus_++;
       if( abs( p->PID ) == 15 ) ngentaus_++;
+
+      if( abs( p->PID ) ==  5 ){
+	nbgen_++;
+	if     ( ibgen1 < 0 ) ibgen1 = ip;
+	else if( ibgen2 < 0 ) ibgen2 = ip;
+      }
+
+      //cout << ip << " ID " << p->PID << " status " << p->Status << endl;
+    }
+
+    if( nbgen_ == 2 ){
+      GenParticle* genb1 = (GenParticle*) branchParticle->At(ibgen1);      
+      GenParticle* genb2 = (GenParticle*) branchParticle->At(ibgen2);      
+
+      float deta = genb1->Eta - genb2->Eta;
+      float dphi = acos( cos ( genb1->Phi - genb2->Phi ) );
+      drbbgen_ = sqrt( deta*deta + dphi*dphi );
     }
 
     ngenleps_ = ngenels_ + ngenmus_ + ngentaus_;
@@ -593,7 +740,13 @@ void doLoop(const string prefix, int nfiles ){
       Jet* bjet1 = (Jet*) branchJet->At(ib1);      
       Jet* bjet2 = (Jet*) branchJet->At(ib2);      
 
-      mbb_ = ( (bjet1->P4()) + (bjet2->P4()) ).M();
+      mbb_  = ( (bjet1->P4()) + (bjet2->P4()) ).M();
+      ptbb_ = ( (bjet1->P4()) + (bjet2->P4()) ).Pt();
+
+      float deta = bjet1->Eta - bjet2->Eta;
+      float dphi = acos( cos ( bjet1->Phi - bjet2->Phi ) );
+      drbb_ = sqrt( deta*deta + dphi*dphi );
+
     }
 
     nels_  = branchElectron->GetEntries();
@@ -667,7 +820,7 @@ void doLoop(const string prefix, int nfiles ){
   tree->Write();
   fbaby->Close();
 
-  char* histname = Form("output/%s.root",prefix.c_str());
+  char* histname = Form("output/%s/%s.root",version,prefix.c_str());
 
   cout << "histname " << histname << endl;
 
