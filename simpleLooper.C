@@ -33,6 +33,7 @@
 
 
 char* version = (char*) "V00-00-01";
+//char* version = (char*) "temp";
 
 using namespace std;
 
@@ -50,14 +51,14 @@ void simpleLooper(){
   bool runtt    = false;
   bool runWZ    = false;
   bool runW     = false;
-  bool runWHsig = true;
-  bool runWZsig = false;
+  bool runWHsig = false;
+  bool runWZsig = true;
 
   char* PU = (char*) "NoPileUp";
   //char* PU = (char*) "40PileUp";
   //char* PU = (char*) "140PileUp";
 
-  int nfiles = 10;
+  int nfiles = 1;
 
   if (runtt){
     doLoop( Form("tt-4p-0-1000_100TEV_%s"      , PU ) , nfiles );
@@ -340,6 +341,7 @@ void InitVars(){
   nb_       = 0  ;
   nbgen_    = 0  ;
   njets_    = 0  ;
+  njets40_  = 0  ;
   njets50_  = 0  ;
   njets100_ = 0  ;
   ngenjets_ = 0  ;
@@ -359,6 +361,12 @@ void InitVars(){
   jet2pt_   = 0. ;
   jet2eta_  = 0. ;
   jet2phi_  = 0. ;
+  bjet1pt_  = 0. ;
+  bjet1eta_ = 0. ;
+  bjet1phi_ = 0. ;
+  bjet2pt_  = 0. ;
+  bjet2eta_ = 0. ;
+  bjet2phi_ = 0. ;
   jet3pt_   = 0. ;
   jet3eta_  = 0. ;
   jet3phi_  = 0. ;
@@ -422,6 +430,7 @@ void doLoop(const string prefix, int nfiles , bool isSignal){
   tree->Branch("nb"         ,  &nb_         ,   "nb/I"		);
   tree->Branch("nbgen"      ,  &nbgen_      ,   "nbgen/I"	);
   tree->Branch("njets"      ,  &njets_      ,   "njets/I"	);
+  tree->Branch("njets40"    ,  &njets40_    ,   "njets40/I"	);
   tree->Branch("njets50"    ,  &njets50_    ,   "njets50/I"	);
   tree->Branch("njets100"   ,  &njets100_   ,   "njets100/I"	);
   tree->Branch("ngenjets"   ,  &ngenjets_   ,   "ngenjets/I"	);
@@ -446,6 +455,12 @@ void doLoop(const string prefix, int nfiles , bool isSignal){
   tree->Branch("jet2phi"    ,  &jet2phi_    ,   "jet2phi/F"	);
   tree->Branch("jet3phi"    ,  &jet3phi_    ,   "jet3phi/F"	);
   tree->Branch("jet4phi"    ,  &jet4phi_    ,   "jet4phi/F"	);
+  tree->Branch("bjet1pt"    ,  &bjet1pt_    ,   "bjet1pt/F"	);
+  tree->Branch("bjet2pt"    ,  &bjet2pt_    ,   "bjet2pt/F"	);
+  tree->Branch("bjet1eta"   ,  &bjet1eta_   ,   "bjet1eta/F"	);
+  tree->Branch("bjet2eta"   ,  &bjet2eta_   ,   "bjet2eta/F"	);
+  tree->Branch("bjet1phi"   ,  &bjet1phi_   ,   "bjet1phi/F"	);
+  tree->Branch("bjet2phi"   ,  &bjet2phi_   ,   "bjet2phi/F"	);
   tree->Branch("st"         ,  &st_         ,   "st/F"		);
   tree->Branch("stlep"      ,  &stlep_      ,   "stlep/F"	);
   tree->Branch("stweight"   ,  &stweight_   ,   "stweight/F"	);
@@ -463,6 +478,7 @@ void doLoop(const string prefix, int nfiles , bool isSignal){
   tree->Branch("drbbgen"    ,  &drbbgen_    ,   "drbbgen/F"	);
   tree->Branch("pthgen"     ,  &pthgen_     ,   "pthgen/F"	);
   tree->Branch("lep1pt"     ,  &lep1pt_     ,   "lep1pt/F"	);
+  tree->Branch("lep1phi"    ,  &lep1phi_    ,   "lep1phi/F"	);
   tree->Branch("lep1eta"    ,  &lep1eta_    ,   "lep1eta/F"	);
   tree->Branch("lep2pt"     ,  &lep2pt_     ,   "lep2pt/F"	);
   tree->Branch("lep2eta"    ,  &lep2eta_    ,   "lep2eta/F"	);
@@ -616,6 +632,7 @@ void doLoop(const string prefix, int nfiles , bool isSignal){
       Jet* jet = (Jet*) branchJet->At(ijet);
       //cout << i << " " << Form("%.1f",jet->PT) << " " << Form("%.2f",jet->Eta) << endl;
       if( jet->PT > 30  ) njets_++;
+      if( jet->PT > 40  ) njets40_++;
       if( jet->PT > 50  ) njets50_++;
       if( jet->PT > 100 ) njets100_++;
     }
@@ -747,6 +764,13 @@ void doLoop(const string prefix, int nfiles , bool isSignal){
       float dphi = acos( cos ( bjet1->Phi - bjet2->Phi ) );
       drbb_ = sqrt( deta*deta + dphi*dphi );
 
+      bjet1pt_  = bjet1->PT;
+      bjet1eta_ = bjet1->Eta;
+      bjet1phi_ = bjet1->Phi;
+
+      bjet2pt_  = bjet2->PT;
+      bjet2eta_ = bjet2->Eta;
+      bjet2phi_ = bjet2->Phi;
     }
 
     nels_  = branchElectron->GetEntries();

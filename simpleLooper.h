@@ -11,6 +11,7 @@
 
 Int_t   nbgen_    ;
 Int_t   njets_    ;
+Int_t   njets40_  ;
 Int_t   njets50_  ;
 Int_t   njets100_ ;
 Int_t   ngenjets_ ;
@@ -36,6 +37,12 @@ Float_t jet1phi_  ;
 Float_t jet2phi_  ;
 Float_t jet3phi_  ;
 Float_t jet4phi_  ;
+Float_t bjet1pt_  ;
+Float_t bjet2pt_  ;
+Float_t bjet1eta_ ;
+Float_t bjet2eta_ ;
+Float_t bjet1phi_ ;
+Float_t bjet2phi_ ;
 Float_t st_       ;
 Float_t stlep_    ;
 Float_t stweight_ ;
